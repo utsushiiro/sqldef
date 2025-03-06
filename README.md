@@ -132,6 +132,7 @@ Application Options:
       --skip-view             Skip managing views/materialized views
       --skip-extension        Skip managing extensions
       --before-apply=         Execute the given string before applying the regular DDLs
+      --separate-tx           Run each DDL in a separate transaction
       --config=               YAML file to specify: target_tables, skip_tables, target_schema
       --help                  Show this help
       --version               Show this version

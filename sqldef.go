@@ -18,6 +18,7 @@ type Options struct {
 	Export          bool
 	EnableDropTable bool
 	BeforeApply     string
+	SeparateTx      bool
 	Config          database.GeneratorConfig
 }
 
@@ -72,7 +73,7 @@ func Run(generatorMode schema.GeneratorMode, db database.Database, sqlParser dat
 		return
 	}
 
-	err = database.RunDDLs(db, ddls, options.EnableDropTable, options.BeforeApply, ddlSuffix)
+	err = database.RunDDLs(db, ddls, options.EnableDropTable, options.BeforeApply, ddlSuffix, options.SeparateTx)
 	if err != nil {
 		log.Fatal(err)
 	}

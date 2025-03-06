@@ -51,38 +51,60 @@ type Database interface {
 	GetDefaultSchema() string
 }
 
-func RunDDLs(d Database, ddls []string, enableDropTable bool, beforeApply string, ddlSuffix string) error {
-	transaction, err := d.DB().Begin()
-	if err != nil {
-		return err
-	}
-	fmt.Println("-- Apply --")
-	if len(beforeApply) > 0 {
-		fmt.Println(beforeApply)
-		if _, err := transaction.Exec(beforeApply); err != nil {
-			transaction.Rollback()
-			return err
+func RunDDLs(d Database, ddls []string, enableDropTable bool, beforeApply string, ddlSuffix string, separateTx bool) error {
+	if separateTx {
+		fmt.Println("-- Apply --")
+		if len(beforeApply) > 0 {
+			fmt.Println(beforeApply)
+			if _, err := d.DB().Exec(beforeApply); err != nil {
+				return err
+			}
 		}
-	}
-	for _, ddl := range ddls {
-		if !enableDropTable && strings.Contains(ddl, "DROP TABLE") {
-			fmt.Printf("-- Skipped: %s;\n", ddl)
-			continue
+		for _, ddl := range ddls {
+			if !enableDropTable && strings.Contains(ddl, "DROP TABLE") {
+				fmt.Printf("-- Skipped: %s;\n", ddl)
+				continue
+			}
+			fmt.Printf("%s;\n", ddl)
+			fmt.Print(ddlSuffix)
+			if _, err := d.DB().Exec(ddl); err != nil {
+				return err
+			}
 		}
-		fmt.Printf("%s;\n", ddl)
-		fmt.Print(ddlSuffix)
-		var err error
-		if TransactionSupported(ddl) {
-			_, err = transaction.Exec(ddl)
-		} else {
-			_, err = d.DB().Exec(ddl)
-		}
+	} else {
+		transaction, err := d.DB().Begin()
 		if err != nil {
-			transaction.Rollback()
 			return err
 		}
+		fmt.Println("-- Apply --")
+		if len(beforeApply) > 0 {
+			fmt.Println(beforeApply)
+			if _, err := transaction.Exec(beforeApply); err != nil {
+				transaction.Rollback()
+				return err
+			}
+		}
+		for _, ddl := range ddls {
+			if !enableDropTable && strings.Contains(ddl, "DROP TABLE") {
+				fmt.Printf("-- Skipped: %s;\n", ddl)
+				continue
+			}
+			fmt.Printf("%s;\n", ddl)
+			fmt.Print(ddlSuffix)
+			var err error
+			if TransactionSupported(ddl) && !separateTx {
+				_, err = transaction.Exec(ddl)
+			} else {
+				_, err = d.DB().Exec(ddl)
+			}
+			if err != nil {
+				transaction.Rollback()
+				return err
+			}
+		}
+		transaction.Commit()
 	}
-	transaction.Commit()
+
 	return nil
 }
 
